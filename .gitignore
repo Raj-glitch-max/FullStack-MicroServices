@@ -16,6 +16,9 @@ node_modules/
 # Logs
 *.log
 
+# Internal documentation (kept locally; not published)
+docs/
+
 # Terraform
 .terraform/
 *.tfstate
