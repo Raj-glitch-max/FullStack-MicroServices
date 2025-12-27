@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-loadtest
+  labels:
+    app: backend-loadtest
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: backend-loadtest
+    spec:
+      priorityClassName: app-batch
+      restartPolicy: Never
+      containers:
+        - name: load
+          image: alpine:3.20
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TARGET_URL
+              value: http://backend-service:3000/health
+            # Total wall-clock seconds to run
+            - name: DURATION_SECONDS
+              value: "120"
+            # Parallel workers (simple curl loops)
+            - name: CONCURRENCY
+              value: "30"
+            # Optional per-request sleep seconds (0 = no sleep)
+            - name: SLEEP_SECONDS
+              value: "0"
+          command: ["/bin/sh","-lc"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache curl >/dev/null
+              echo "[loadtest] target=${TARGET_URL} duration=${DURATION_SECONDS}s concurrency=${CONCURRENCY} sleep=${SLEEP_SECONDS}s"
+
+              end=$(( $(date +%s) + DURATION_SECONDS ))
+
+              worker() {
+                ok=0
+                fail=0
+                while [ $(date +%s) -lt "$end" ]; do
+                  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$TARGET_URL" || true)
+                  if [ "$code" = "200" ]; then
+                    ok=$((ok+1))
+                  else
+                    fail=$((fail+1))
+                  fi
+                  if [ "$SLEEP_SECONDS" != "0" ]; then
+                    sleep "$SLEEP_SECONDS"
+                  fi
+                done
+                echo "[loadtest] worker done ok=${ok} fail=${fail}"
+              }
+
+              i=0
+              while [ "$i" -lt "$CONCURRENCY" ]; do
+                worker &
+                i=$((i+1))
+              done
+              wait
+              echo "[loadtest] finished"
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

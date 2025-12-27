@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: microservices-app-prod
+  namespace: argocd
+  annotations:
+    # Enable image updater for this application
+    argocd-image-updater.argoproj.io/image-list: backend=${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/backend,frontend=${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/frontend
+
+    # Track latest semver-like tags (customize to your tag strategy)
+    argocd-image-updater.argoproj.io/backend.update-strategy: latest
+    argocd-image-updater.argoproj.io/frontend.update-strategy: latest
+
+    # Write back changes to Git (recommended GitOps pattern)
+    argocd-image-updater.argoproj.io/write-back-method: git
+
+    # Use Kustomize image overrides in the overlay
+    argocd-image-updater.argoproj.io/backend.kustomize.image-name: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/backend
+    argocd-image-updater.argoproj.io/frontend.kustomize.image-name: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/frontend
+
+    # Optional: limit allowed tags with regex (uncomment and tune)
+    # argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^\d+\.\d+\.\d+$
+    # argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^\d+\.\d+\.\d+$
+spec:
+  # no spec changes; this is an annotation-only patch
+  project: default

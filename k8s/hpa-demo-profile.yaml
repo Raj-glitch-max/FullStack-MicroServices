@@ -1,0 +1,68 @@
+# HPA demo profile
+#
+# Purpose:
+# - Make autoscaling behavior VERY visible during demos.
+#
+# This file intentionally updates ONLY the HPA object.
+#
+# Why not patch the Deployment here?
+# - Applying partial Deployment YAML can accidentally null out required/immutable fields
+#   (selector, labels, image). That's why this demo profile keeps Deployment changes as
+#   explicit kubectl patch commands below.
+#
+# Optional (recommended for demos): temporarily lower backend CPU request so HPA
+# utilization (usage/request) spikes faster.
+#
+# Apply (optional Deployment tweak):
+#   kubectl patch deploy backend -p '{"spec":{"template":{"spec":{"containers":[{"name":"backend","resources":{"requests":{"cpu":"50m","memory":"256Mi"},"limits":{"cpu":"500m","memory":"512Mi"}}}]}}}}'
+# Rollback Deployment:
+#   kubectl apply -f k8s/backend.yaml
+#
+# Apply HPA demo settings:
+#   kubectl apply -f k8s/hpa-demo-profile.yaml
+# Rollback HPA:
+#   kubectl apply -f k8s/backend-hpa.yaml
+#
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+      selectPolicy: Max

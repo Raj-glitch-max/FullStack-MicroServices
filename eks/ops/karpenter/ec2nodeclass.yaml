@@ -1,0 +1,33 @@
+# Example EC2NodeClass for Karpenter.
+#
+# You must fill in selectors that match your EKS cluster.
+# Typical workflow:
+# - tag your subnets and security groups
+# - reference via tags so it works across environments
+#
+# NOTE: API versions can change between Karpenter releases.
+# Adjust to the version you install.
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2
+
+  # Discover subnets by tag (recommended)
+  subnetSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/${CLUSTER_NAME}: owned
+
+  # Discover security groups by tag (recommended)
+  securityGroupSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/${CLUSTER_NAME}: owned
+
+  # Optional: role that nodes will assume (created during Karpenter setup)
+  role: ${CLUSTER_NAME}-karpenter-node-role
+
+  # Optional: tags Karpenter will apply to instances
+  tags:
+    Project: microservices-app
+    Environment: production

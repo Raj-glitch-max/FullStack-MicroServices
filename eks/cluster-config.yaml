@@ -1,0 +1,68 @@
+# eksctl cluster configuration (learning-first, production-shaped)
+#
+# WHY:
+# - Creates EKS cluster + VPC (public + private subnets across 3 AZs)
+# - Uses private networking for nodes (recommended)
+# - Enables OIDC so you can use IRSA (pod-level IAM)
+#
+# HOW TO USE (later, after AWS creds):
+#   eksctl create cluster -f eks/cluster-config.yaml
+#
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: ${CLUSTER_NAME:-production-cluster}
+  region: ap-south-1
+  version: "1.28"
+
+# VPC will be created by eksctl (unless you supply an existing VPC)
+# For true production HA, prefer nat.gateway: HighlyAvailable (3 NATs).
+# For learning/cost, Single NAT is fine but reduces AZ resilience.
+vpc:
+  cidr: 10.0.0.0/16
+  nat:
+    gateway: Single
+
+iam:
+  # Required for IRSA
+  withOIDC: true
+
+managedNodeGroups:
+  - name: general-nodes
+    instanceType: t3.medium
+    desiredCapacity: 3
+    minSize: 2
+    maxSize: 6
+    volumeSize: 30
+    privateNetworking: true
+    labels:
+      role: general
+    tags:
+      Environment: production
+      Project: microservices-app
+    iam:
+      withAddonPolicies:
+        ebs: true
+        efs: true
+        albIngress: true
+        cloudWatch: true
+
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+    version: latest
+
+cloudWatch:
+  clusterLogging:
+    enableTypes:
+      - api
+      - audit
+      - authenticator
+      - controllerManager
+      - scheduler

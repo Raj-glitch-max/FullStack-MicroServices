@@ -1,0 +1,55 @@
+# Prometheus alerts for the demo app.
+# Requires kube-prometheus-stack (Prometheus Operator) installed in `monitoring`.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: app.rules
+      rules:
+        - alert: BackendHigh5xxRate
+          expr: |
+            sum(rate(app_http_request_duration_seconds_count{status_code=~"5..",route=~"/api.*|/health"}[5m]))
+              /
+            sum(rate(app_http_request_duration_seconds_count{route=~"/api.*|/health"}[5m]))
+              > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Backend 5xx rate is high"
+            description: "More than 5% of backend responses are 5xx for 5 minutes."
+
+        - alert: BackendHighLatencyP95
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(app_http_request_duration_seconds_bucket{route=~"/api.*|/health"}[5m]))
+            ) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Backend p95 latency > 500ms"
+            description: "p95 request latency is above 500ms for 10 minutes."
+
+        - alert: PostgresDown
+          expr: app_dependency_up{dependency="postgres"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Postgres dependency reported down"
+            description: "Backend /health indicated postgres is not reachable."
+
+        - alert: RedisDown
+          expr: app_dependency_up{dependency="redis"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redis dependency reported down"
+            description: "Backend /health indicated redis is not reachable."

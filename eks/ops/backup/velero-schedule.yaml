@@ -1,0 +1,30 @@
+# Example Velero schedules.
+#
+# These CRDs are created when Velero is installed.
+# Apply only after Velero is installed in the cluster.
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-backup
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"
+  template:
+    ttl: 168h0m0s # 7 days
+    includedNamespaces:
+      - default
+    snapshotVolumes: true
+
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: hourly-metadata-only
+  namespace: velero
+spec:
+  schedule: "0 * * * *"
+  template:
+    ttl: 48h0m0s
+    includedNamespaces:
+      - default
+    snapshotVolumes: false

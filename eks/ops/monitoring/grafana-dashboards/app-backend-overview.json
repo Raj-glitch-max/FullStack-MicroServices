@@ -1,0 +1,55 @@
+{
+  "uid": "app-backend",
+  "title": "App / Backend Overview",
+  "tags": ["portfolio", "microservices"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request rate (req/s)",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(app_http_request_duration_seconds_count[5m]))",
+          "legendFormat": "req/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "5xx rate (req/s)",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(app_http_request_duration_seconds_count{status_code=~\\\"5..\\\"}[5m]))",
+          "legendFormat": "5xx req/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency p95 (s)",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(app_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Dependencies (1=up)",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "app_dependency_up",
+          "legendFormat": "{{dependency}}"
+        }
+      ]
+    }
+  ]
+}

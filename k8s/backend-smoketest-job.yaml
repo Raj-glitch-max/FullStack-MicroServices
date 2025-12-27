@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-smoketest
+  labels:
+    app: backend-smoketest
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: backend-smoketest
+    spec:
+      priorityClassName: app-batch
+      restartPolicy: Never
+      containers:
+        - name: smoketest
+          image: alpine:3.20
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: BACKEND_URL
+              value: http://backend-service:3000/health
+          command: ["/bin/sh","-lc"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache curl >/dev/null
+              echo "[smoketest] GET ${BACKEND_URL}"
+              code=$(curl -s -o /tmp/out.json -w "%{http_code}" "${BACKEND_URL}" || true)
+              echo "[smoketest] status=${code}"
+              cat /tmp/out.json || true
+              [ "${code}" = "200" ]

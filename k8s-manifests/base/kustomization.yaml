@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - postgres.yaml
+  - redis.yaml
+  - backend-rollout.yaml
+  - backend-canary-services.yaml
+  - analysis-backend-health.yaml
+  - frontend.yaml
+  - ingress-alb.yaml
+  - hpa-frontend.yaml

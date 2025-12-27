@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+    ports:
+      - "3000:3000"
+
+  database:
+    ports:
+      - "5432:5432"
+
+  cache:
+    ports:
+      - "6379:6379" 

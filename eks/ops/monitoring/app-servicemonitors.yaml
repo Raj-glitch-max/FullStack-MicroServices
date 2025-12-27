@@ -1,0 +1,48 @@
+# Example ServiceMonitor objects for this repo.
+#
+# IMPORTANT:
+# - Your current Node/Express backend may NOT expose Prometheus metrics yet.
+# - This file shows the pattern so you can enable metrics later.
+#
+# If/when you add a /metrics endpoint, set the port and path below.
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-servicemonitor
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - default
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+    - targetPort: 3000
+      path: /metrics
+      interval: 30s
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: frontend-servicemonitor
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - default
+  selector:
+    matchLabels:
+      app: frontend
+  endpoints:
+    # Frontend doesn't expose Prometheus metrics by default.
+    # Keep this as a template if you later add an endpoint.
+    - targetPort: 80
+      path: /metrics
+      interval: 30s
