@@ -7,8 +7,8 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/<YOUR_GITHUB_USER>/<YOUR_REPO>.git
-    targetRevision: main
+    repoURL: https://github.com/Raj-glitch-max/FullStack-MicroServices.git
+    targetRevision: prod
     path: argocd/applications/apps/prod
 
   destination:
