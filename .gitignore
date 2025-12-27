@@ -23,6 +23,9 @@ node_modules/
 crash.log
 crash.*.log
 
+# Terraform lockfiles should be committed; do not ignore them.
+!.terraform.lock.hcl
+
 # Kubernetes / tooling
 *.orig
 
