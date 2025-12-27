@@ -74,7 +74,9 @@ python hack/validate_gitops.py --overlay k8s-manifests/overlays/prod
 
 ## What’s next (remaining 20% → 100%)
 
-See `PHASE3-GITOPS-TERRAFORM-ARGOCD.md` and the ongoing roadmap:
+See the full project journey (10 phases):
+
+- `docs/phase-doc/README.md`
 
 - ArgoCD Image Updater
 - Progressive Delivery (Argo Rollouts)
