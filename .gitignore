@@ -10,6 +10,10 @@ __pycache__/
 .venv/
 .env
 
+# Env files / secrets
+.env.*
+!.env.example
+
 # Node
 node_modules/
 
@@ -34,3 +38,13 @@ crash.*.log
 
 # TLS artifacts (keep manifests, ignore generated cert files)
 .tls/
+
+# Certificates / private keys
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+
+# Kubernetes client configs
+*kubeconfig*
