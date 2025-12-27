@@ -1,0 +1,92 @@
+name: GitOps Promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Target environment overlay to update"
+        type: choice
+        required: true
+        options:
+          - dev
+          - staging
+          - prod
+      sha:
+        description: "Image tag to set (defaults to current commit SHA)"
+        required: false
+        default: ""
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - frontend/**
+      - k8s-manifests/**
+      - .github/workflows/gitops-promote.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-overlay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine target
+        id: vars
+        run: |
+          if [ -n "${{ inputs.env }}" ]; then
+            echo "env=${{ inputs.env }}" >> $GITHUB_OUTPUT
+          else
+            echo "env=dev" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -n "${{ inputs.sha }}" ]; then
+            echo "sha=${{ inputs.sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update kustomization image tags
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          env = "${{ steps.vars.outputs.env }}"
+          sha = "${{ steps.vars.outputs.sha }}"
+
+          p = Path(f"k8s-manifests/overlays/{env}/kustomization.yaml")
+          data = p.read_text(encoding="utf-8")
+
+          # Update any `newTag:` entries (keeps registry/newName unchanged)
+          data = re.sub(r'(^\s*newTag:\s*)"?.*?"?\s*$', rf'\1"{sha}"', data, flags=re.M)
+
+          p.write_text(data, encoding="utf-8")
+          print(f"Updated {p} -> newTag={sha}")
+          PY
+
+      - name: Create PR (staging/prod) or push (dev)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          env="${{ steps.vars.outputs.env }}"
+          sha="${{ steps.vars.outputs.sha }}"
+          branch="gitops/${env}/${sha}"
+
+          git checkout -b "$branch"
+          git add "k8s-manifests/overlays/${env}/kustomization.yaml"
+          git commit -m "chore(gitops): promote ${env} to ${sha}" || exit 0
+          git push --set-upstream origin "$branch"
+
+          if [ "$env" = "dev" ]; then
+            # Dev can auto-merge by directly opening PR and enabling auto-merge if desired.
+            gh pr create --title "Promote dev to ${sha}" --body "Automated promotion to dev." --base main || true
+          else
+            gh pr create --title "Promote ${env} to ${sha}" --body "Automated promotion PR for ${env}." --base main
+          fi
