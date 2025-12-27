@@ -47,7 +47,8 @@ app.use((req, res, next) => {
 const pool = new Pool({
   host: process.env.DATABASE_HOST || 'localhost',
   user: process.env.DATABASE_USER || 'admin',
-  password: process.env.DATABASE_PASSWORD || 'secret123',
+  // Do not bake passwords into source code. Provide DATABASE_PASSWORD via env.
+  password: process.env.DATABASE_PASSWORD || '',
   database: process.env.DATABASE_NAME || 'myapp',
   port: 5432,
 });
