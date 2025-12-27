@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  labels:
+    app: postgres-backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  labels:
+    app: postgres-backup
+spec:
+  # Daily at 02:00 (cluster time)
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          priorityClassName: app-batch
+          restartPolicy: Never
+          containers:
+            - name: pgdump
+              image: postgres:15-alpine
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: PGHOST
+                  value: postgres-service
+                - name: PGPORT
+                  value: "5432"
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secret
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secret
+                      key: password
+                - name: PGDATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secret
+                      key: database
+                # Keep only the last N backups in the PVC
+                - name: KEEP_LAST
+                  value: "10"
+              volumeMounts:
+                - name: backup
+                  mountPath: /backups
+              command: ["/bin/sh","-lc"]
+              args:
+                - |
+                  set -eu
+                  ts=$(date -u +%Y%m%dT%H%M%SZ)
+                  out="/backups/${PGDATABASE}-${ts}.dump"
+                  echo "[postgres-backup] writing ${out}"
+                  pg_dump -Fc -f "${out}" "${PGDATABASE}"
+                  echo "[postgres-backup] done, listing newest backups"
+                  ls -lt /backups | head -n 20 || true
+                  echo "[postgres-backup] pruning to KEEP_LAST=${KEEP_LAST}"
+                  # Delete everything after the newest KEEP_LAST files
+                  ls -1t /backups/*.dump 2>/dev/null | tail -n +$((KEEP_LAST+1)) | xargs -r rm -f
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: postgres-backup-pvc

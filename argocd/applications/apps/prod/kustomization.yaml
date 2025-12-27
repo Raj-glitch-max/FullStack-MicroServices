@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - app.yaml
+
+# Optional: enable ArgoCD Image Updater annotations for the prod app.
+# If you don't want auto-updates, delete this line.
+  - ../../../image-updater

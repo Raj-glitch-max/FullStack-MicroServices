@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - secrets/db-sealedsecret.yaml
+
+# Pin images here (instead of editing base YAML).
+# Replace with your real ECR registry/account and tags.
+images:
+  - name: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/backend
+    newName: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/backend
+    newTag: "1.0"
+  - name: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/frontend
+    newName: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/frontend
+    newTag: "1.0"
+
+# In a real repo, you might:
+# - set namespace to production
+# - pin image tags
+# - set replicas + HPA
+# - configure ingress hostnames

@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: job-cleaner
+  labels:
+    app: job-cleaner
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: job-cleaner
+  labels:
+    app: job-cleaner
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: job-cleaner
+  labels:
+    app: job-cleaner
+subjects:
+  - kind: ServiceAccount
+    name: job-cleaner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: job-cleaner
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jobs-cleanup
+  labels:
+    app: jobs-cleanup
+spec:
+  # Every 30 minutes
+  schedule: "*/30 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app: jobs-cleanup
+        spec:
+          serviceAccountName: job-cleaner
+          priorityClassName: app-batch
+          restartPolicy: Never
+          containers:
+            - name: cleanup
+              image: bitnami/kubectl:latest
+              imagePullPolicy: IfNotPresent
+              env:
+                # Delete Jobs completed more than N minutes ago.
+                - name: OLDER_THAN_MINUTES
+                  value: "60"
+                # Only delete Jobs matching this label selector. Keep this narrow for safety.
+                - name: SELECTOR
+                  value: "app in (backend-smoketest,backend-health,postgres-backup)"
+              command: ["/bin/sh","-lc"]
+              args:
+                - |
+                  set -eu
+                  now=$(date +%s)
+                  cutoff=$((now - OLDER_THAN_MINUTES*60))
+                  echo "[jobs-cleanup] selector='${SELECTOR}' olderThanMinutes=${OLDER_THAN_MINUTES} cutoffEpoch=${cutoff}"
+
+                  # Get all Jobs matching selector. We avoid jq and parse only name + completionTime.
+                  # completionTime is RFC3339 like 2025-12-27T09:32:24Z.
+                  kubectl get jobs --selector "${SELECTOR}" \
+                    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.completionTime}{"\n"}{end}' \
+                    | while IFS=$'\t' read -r name completion; do
+                        if [ -z "${name}" ]; then
+                          continue
+                        fi
+                        if [ -z "${completion}" ]; then
+                          echo "[jobs-cleanup] skip ${name} (not completed)"
+                          continue
+                        fi
+                        done_epoch=$(date -d "${completion}" +%s 2>/dev/null || echo 0)
+                        if [ "${done_epoch}" -gt 0 ] && [ "${done_epoch}" -lt "${cutoff}" ]; then
+                          echo "[jobs-cleanup] deleting ${name} (completed ${completion})"
+                          kubectl delete job "${name}" --ignore-not-found
+                        else
+                          echo "[jobs-cleanup] keep ${name} (completed ${completion})"
+                        fi
+                      done

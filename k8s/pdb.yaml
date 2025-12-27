@@ -1,0 +1,26 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  labels:
+    app: backend
+spec:
+  # Keep at least 1 backend pod available during voluntary disruptions.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  labels:
+    app: frontend
+spec:
+  # Keep at least 1 frontend pod available during voluntary disruptions.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: frontend

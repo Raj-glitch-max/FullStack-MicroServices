@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: loadgen-hey
+  labels:
+    app: loadgen-hey
+spec:
+  selector:
+    matchLabels:
+      app: loadgen-hey
+  template:
+    metadata:
+      labels:
+        app: loadgen-hey
+    spec:
+      priorityClassName: app-batch
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: hey
+          # NOTE: This DaemonSet is optional and may require registry access.
+          # If you see ImagePullBackOff, use the curl-based strong load DaemonSet instead (`loadgen-strong-daemonset.yaml`).
+          image: ghcr.io/rakyll/hey:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TARGET_URL
+              value: http://backend-service:3000/health
+            - name: DURATION
+              value: 5m
+            - name: CONCURRENCY
+              value: "50"
+            - name: QPS
+              value: "0"
+          command: ["/bin/sh","-lc"]
+          args:
+            - |
+              set -eu
+              echo "[loadgen-hey] target=${TARGET_URL} duration=${DURATION} c=${CONCURRENCY} qps=${QPS}"
+              while true; do
+                if [ "${QPS}" = "0" ]; then
+                  hey -z "${DURATION}" -c "${CONCURRENCY}" "${TARGET_URL}" || true
+                else
+                  hey -z "${DURATION}" -c "${CONCURRENCY}" -q "${QPS}" "${TARGET_URL}" || true
+                fi
+                sleep 1
+              done
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

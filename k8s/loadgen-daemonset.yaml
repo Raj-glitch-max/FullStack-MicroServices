@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: loadgen
+  labels:
+    app: loadgen
+spec:
+  selector:
+    matchLabels:
+      app: loadgen
+  template:
+    metadata:
+      labels:
+        app: loadgen
+    spec:
+      priorityClassName: app-batch
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: loadgen
+          image: alpine:3.20
+          imagePullPolicy: IfNotPresent
+          env:
+            # Target the backend service directly (ClusterIP) so we don't depend on ingress / TLS / DNS outside cluster.
+            - name: TARGET_URL
+              value: http://backend-service:3000/health
+            # Concurrency (number of parallel loops in this pod)
+            - name: CONCURRENCY
+              value: "10"
+            # Delay between requests in seconds (smaller = more load). Use 0 for max.
+            - name: SLEEP_SECONDS
+              value: "0"
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache curl >/dev/null
+              echo "[loadgen] targeting: ${TARGET_URL}"
+              echo "[loadgen] concurrency: ${CONCURRENCY}, sleep: ${SLEEP_SECONDS}s"
+              i=0
+              while true; do
+                # start N background request loops
+                c=0
+                while [ "$c" -lt "$CONCURRENCY" ]; do
+                  (
+                    while true; do
+                      curl -sS --max-time 2 "$TARGET_URL" >/dev/null || true
+                      if [ "$SLEEP_SECONDS" != "0" ]; then
+                        sleep "$SLEEP_SECONDS"
+                      fi
+                    done
+                  ) &
+                  c=$((c+1))
+                done
+                wait
+                i=$((i+1))
+              done
+          resources:
+            # Keep the loadgen itself lightweight; most CPU will be in backend.
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      # Minikube is single-node; this still works and demonstrates DaemonSet semantics.
+      # If you later run a multi-node cluster, each node will generate load.

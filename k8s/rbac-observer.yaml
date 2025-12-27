@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-observer
+  labels:
+    app: app-observer
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-observer
+  labels:
+    app: app-observer
+rules:
+  # Read-only access for common troubleshooting
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "configmaps", "events", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  # Allow reading pod logs (handy for debugging); still read-only.
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-observer
+  labels:
+    app: app-observer
+subjects:
+  - kind: ServiceAccount
+    name: app-observer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app-observer

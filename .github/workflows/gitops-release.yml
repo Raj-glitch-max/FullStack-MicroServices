@@ -1,0 +1,83 @@
+name: Build & Release (GitOps)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - backend/**
+      - frontend/**
+      - .github/workflows/gitops-release.yml
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY_BACKEND: backend
+  ECR_REPOSITORY_FRONTEND: frontend
+  # The file we bump when releasing
+  GITOPS_KUSTOMIZATION: k8s-manifests/overlays/prod/kustomization.yaml
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_BACKEND }}:${{ github.sha }}
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_FRONTEND }}:${{ github.sha }}
+
+      - name: Update GitOps image tags (kustomization.yaml)
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          p = Path("${GITOPS_KUSTOMIZATION}")
+          data = p.read_text(encoding="utf-8")
+
+          # Update both backend and frontend newTag values to the commit SHA.
+          data = re.sub(r'(name: .*?/backend\n\s*newName: .*?/backend\n\s*newTag: )".*?"', r'\1"${{ github.sha }}"', data)
+          data = re.sub(r'(name: .*?/frontend\n\s*newName: .*?/frontend\n\s*newTag: )".*?"', r'\1"${{ github.sha }}"', data)
+
+          p.write_text(data, encoding="utf-8")
+          print("Updated", p)
+          PY
+
+      - name: Commit GitOps bump
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add "${GITOPS_KUSTOMIZATION}"
+          git commit -m "chore(release): bump images to ${{ github.sha }}" || echo "No changes to commit"
+          git push
+
+# Required secrets:
+# - AWS_ROLE_TO_ASSUME: IAM role ARN with ECR push permissions

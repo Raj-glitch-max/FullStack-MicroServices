@@ -1,0 +1,37 @@
+# Example NodePool for Karpenter.
+#
+# Goal: scale general-purpose application nodes.
+#
+# IMPORTANT:
+# - Start conservative (limits + on-demand).
+# - Once stable, add spot capacity.
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: general
+spec:
+  limits:
+    cpu: "1000" # upper bound for cluster scale from this pool
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: 720h # recycle nodes periodically
+  template:
+    metadata:
+      labels:
+        role: karpenter-general
+    spec:
+      nodeClassRef:
+        name: default
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values: ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values: ["t3.medium", "t3.large", "m5.large"]

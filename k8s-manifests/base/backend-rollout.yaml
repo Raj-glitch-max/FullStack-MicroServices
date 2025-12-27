@@ -1,0 +1,111 @@
+# Progressive delivery version of backend using Argo Rollouts.
+#
+# Requires Argo Rollouts CRDs + controller installed.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+
+  selector:
+    matchLabels:
+      app: backend
+
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      priorityClassName: app-critical
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/backend:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DATABASE_HOST
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: password
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: database
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: REDIS_HOST
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: NODE_ENV
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+  strategy:
+    canary:
+      stableService: backend-service
+      canaryService: backend-service-canary
+      trafficRouting:
+        # Traffic routing is left as a future enhancement.
+        # With ALB, traffic splitting requires weighted target groups.
+        # With NGINX / Istio, Rollouts can manage canary weights.
+        managedRoutes: []
+
+      steps:
+        - setWeight: 20
+        - pause: { duration: 30s }
+
+        - analysis:
+            templates:
+              - templateName: backend-health
+
+        - setWeight: 50
+        - pause: { duration: 60s }
+
+        - setWeight: 100

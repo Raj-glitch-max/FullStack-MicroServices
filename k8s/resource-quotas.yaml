@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: app-quota
+  namespace: default
+spec:
+  hard:
+    # Limit total pod count in the namespace
+    pods: "20"
+
+    # Total requested resources across the namespace
+    requests.cpu: "2"
+    requests.memory: 2Gi
+
+    # Total limits across the namespace
+    limits.cpu: "4"
+    limits.memory: 4Gi
+
+    # Storage caps (PVC usage)
+    persistentvolumeclaims: "10"
+    requests.storage: 20Gi

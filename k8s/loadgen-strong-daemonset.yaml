@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: loadgen-strong
+  labels:
+    app: loadgen-strong
+spec:
+  selector:
+    matchLabels:
+      app: loadgen-strong
+  template:
+    metadata:
+      labels:
+        app: loadgen-strong
+    spec:
+      priorityClassName: app-batch
+      terminationGracePeriodSeconds: 0
+      containers:
+        - name: loadgen
+          image: alpine:3.20
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TARGET_URL
+              value: http://backend-service:3000/health
+            # High concurrency by default to force noticeable CPU utilization.
+            - name: CONCURRENCY
+              value: "200"
+            # Requests per worker loop (0 = infinite)
+            - name: REQUESTS_PER_WORKER
+              value: "0"
+            - name: SLEEP_SECONDS
+              value: "0"
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache curl >/dev/null
+              echo "[loadgen-strong] targeting: ${TARGET_URL}"
+              echo "[loadgen-strong] concurrency=${CONCURRENCY} sleep=${SLEEP_SECONDS}s req/worker=${REQUESTS_PER_WORKER}"
+
+              worker() {
+                n=0
+                while true; do
+                  curl -sS --max-time 2 "$TARGET_URL" >/dev/null || true
+                  n=$((n+1))
+                  if [ "$REQUESTS_PER_WORKER" != "0" ] && [ "$n" -ge "$REQUESTS_PER_WORKER" ]; then
+                    break
+                  fi
+                  if [ "$SLEEP_SECONDS" != "0" ]; then
+                    sleep "$SLEEP_SECONDS"
+                  fi
+                done
+              }
+
+              i=0
+              while [ "$i" -lt "$CONCURRENCY" ]; do
+                worker &
+                i=$((i+1))
+              done
+              wait
+          resources:
+            # The loadgen itself will use CPU. This is intentional for a demo.
+            # If it starves your node, reduce CONCURRENCY.
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 1000m
+              memory: 256Mi

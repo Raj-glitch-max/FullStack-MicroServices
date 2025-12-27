@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: backend-health
+spec:
+  metrics:
+    - name: backend-health
+      interval: 10s
+      count: 3
+      failureLimit: 1
+      provider:
+        web:
+          url: http://backend-service:3000/health
+          timeoutSeconds: 5
+      successCondition: result == "OK" || result == "ok" || result == "healthy" || result == "{" || result != ""

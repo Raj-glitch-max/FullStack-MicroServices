@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backend-health
+  labels:
+    app: backend-health
+spec:
+  # Every 5 minutes
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app: backend-health
+        spec:
+          priorityClassName: app-batch
+          restartPolicy: Never
+          containers:
+            - name: health
+              image: alpine:3.20
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: BACKEND_URL
+                  value: http://backend-service:3000/health
+              command: ["/bin/sh","-lc"]
+              args:
+                - |
+                  set -eu
+                  apk add --no-cache curl >/dev/null
+                  ts=$(date -Iseconds)
+                  code=$(curl -s -o /tmp/out.json -w "%{http_code}" "${BACKEND_URL}" || true)
+                  echo "[${ts}] backend /health status=${code}"
+                  cat /tmp/out.json || true
+                  [ "${code}" = "200" ]
