@@ -72,11 +72,11 @@ pip install -r requirements-dev.txt
 python hack/validate_gitops.py --overlay k8s-manifests/overlays/prod
 ```
 
+## License
+
+MIT — see `LICENSE`.
+
 ## What’s next (remaining 20% → 100%)
-
-See the full project journey (10 phases):
-
-- `docs/phase-doc/README.md`
 
 - ArgoCD Image Updater
 - Progressive Delivery (Argo Rollouts)
@@ -107,25 +107,11 @@ If you want this repo to *feel* like a production portfolio project, add screens
 - Grafana dashboard
 - Velero backup/restore
 
-Use the checklist here:
-
-- `docs/screenshots/README.md`
+Use the checklist in your internal notes/docs.
 
 ### Docs
 
-### Project timeline (10 phases)
-
-If you want the full story from “first Docker build” → “production-grade GitOps platform”, read:
-
-- `docs/phase-doc/README.md`
-
-Each phase includes: what/why/how/tools/challenges/solutions/outcomes.
-
-- CI/CD: `docs/cicd/github-actions.md`
-- Sealed Secrets: `docs/security/sealed-secrets.md`
-- Backup/DR: `docs/ops/backup-dr.md`
-- Architecture deep dive: `docs/architecture.md`
-- Demo walkthrough: `docs/demo.md`
+This repo intentionally doesn’t publish internal `docs/` content to GitHub.
 
 ### Troubleshooting
 
