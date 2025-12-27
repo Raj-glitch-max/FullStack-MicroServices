@@ -42,11 +42,39 @@ Pros:
 
 ## Important: set your repo URL
 
-Before applying any ArgoCD Application, edit the `repoURL` fields:
+Before applying any ArgoCD Application, confirm the `repoURL` is correct.
+
+Current repo URL:
+
+- `https://github.com/Raj-glitch-max/FullStack-MicroServices.git`
+
+Files to check:
 
 - `argocd/applications/production.yaml`
 - `argocd/applications/root-production.yaml`
 - `argocd/applications/apps/prod/app.yaml`
+
+## Multi-environment GitOps (dev / staging / prod)
+
+This repo supports a simple promotion workflow:
+
+- Branches: `dev`, `staging`, `prod`
+- Kustomize overlays:
+	- `k8s-manifests/overlays/dev`
+	- `k8s-manifests/overlays/staging`
+	- `k8s-manifests/overlays/prod`
+
+ArgoCD Applications:
+
+- `argocd/applications/apps/dev/app.yaml` (tracks `dev` branch)
+- `argocd/applications/apps/staging/app.yaml` (tracks `staging` branch)
+- `argocd/applications/apps/prod/app.yaml`
+
+### Suggested promotion flow
+
+1. Merge feature work into `dev`
+2. Promote to `staging` via PR/merge
+3. Promote to `prod` via PR/merge
 
 ## Safety notes
 

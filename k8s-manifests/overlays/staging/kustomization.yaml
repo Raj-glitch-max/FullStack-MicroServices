@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Staging overlay:
+# - should be close to prod, but with safer defaults (smaller replicas)
+# - typically uses separate DNS hostnames and separate namespaces
+#
+# Replace these with your real ECR registry/account and tags.
+images:
+  - name: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/backend
+    newName: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/backend
+    newTag: "staging"
+  - name: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/frontend
+    newName: ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/frontend
+    newTag: "staging"
+
+# Keep this overlay intentionally light; customize as needed:
+# patches:
+#   - path: patches/replicas.yaml
